@@ -20,14 +20,9 @@ dotenv.config();
 
 const app = express();
 
-// 💡 Sentry-ს ინიციალიზაცია
 Sentry.init({
-        dsn: process.env.SENTRY_DSN,
-        integrations: [
-        // Express ინტეგრაციის ავტომატური ჰენდლერები
-        new Sentry.Integrations.Http({ tracing: true }),
-        new Sentry.Integrations.Express({ app }),
-        ], tracesSampleRate: 1.0
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 1.0
 });
 
 // 💡 Sentry Request Handler (უნდა იყოს პირველი მიდლუერი)
