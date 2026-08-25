@@ -2,7 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const session = require('express-session');
 const path = require('path');
-const Sentry = require("@sentry/node"); 
+// const Sentry = require("@sentry/node"); 
 const connectDB = require('./config/db');
 const authRouter = require('./routes/authRoutes');
 const productRouter = require('./routes/productRoutes');
@@ -20,14 +20,14 @@ dotenv.config();
 
 const app = express();
 
-Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    tracesSampleRate: 1.0
-});
+// Sentry.init({
+//     dsn: process.env.SENTRY_DSN,
+//     tracesSampleRate: 1.0
+// });
 
-// 💡 Sentry Request Handler (უნდა იყოს პირველი მიდლუერი)
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
+
+// app.use(Sentry.Handlers.requestHandler());
+// app.use(Sentry.Handlers.tracingHandler());
 
 const passport = require('./config/passport');
 
@@ -37,7 +37,7 @@ connectDB();
 // Middleware JSON ტანის (body) წასაკითხად
 app.use(express.json());
 
-// 💡 2. სტატიკური ფაილების საქაღალდის დაკავშირება (სურათების საჩვენებლად)
+// სტატიკური ფაილების საქაღალდის დაკავშირება (სურათების საჩვენებლად)
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // სესიის კონფიგურაცია
@@ -63,7 +63,7 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 💡 Sentry Error Handler (უნდა იყოს როუტების შემდეგ და საკუთარ გლობალურ ერორ ჰენდლერამდე)
+// Sentry Error Handler (უნდა იყოს როუტების შემდეგ და საკუთარ გლობალურ ერორ ჰენდლერამდე)
 app.use(Sentry.Handlers.errorHandler());
 
 // გლობალური Error Handling Middleware
