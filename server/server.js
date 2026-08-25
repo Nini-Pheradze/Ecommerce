@@ -1,7 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const session = require('express-session');
-const path = require('path'); // 💡 1. დაამატე path-ის იმპორტი
+const path = require('path');
 const Sentry = require("@sentry/node"); 
 const connectDB = require('./config/db');
 const authRouter = require('./routes/authRoutes');
