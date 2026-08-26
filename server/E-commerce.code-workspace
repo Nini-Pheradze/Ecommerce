@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"name": "E-commerce",
+			"path": ".."
+		},
+		{
+			"name": "client",
+			"path": "../../client"
+		},
+		{
+			"path": "../../client/nodeship"
+		}
+	],
+	"settings": {}
+}

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "client",
+			"path": "../../client/client"
+		},
+		{
+			"name": "E-commerce",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
