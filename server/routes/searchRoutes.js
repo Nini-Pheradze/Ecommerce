@@ -7,6 +7,9 @@ const router = express.Router();
 // პროდუქტების ძებნა (ყველასთვის ღიაა)
 router.get('/products', searchController.searchProducts);
 
+// კატეგორიების ძებნა (ყველასთვის ღიაა)
+router.get('/categories', searchController.searchCategories);
+
 // იუზერების ძებნა (მხოლოდ ადმინს)
 router.get('/users', protect, restrictTo('admin'), searchController.searchUsers);
 

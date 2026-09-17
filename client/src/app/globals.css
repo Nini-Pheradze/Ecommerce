@@ -2,71 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background-color: #f6f4ef;
-  color: #0d0d0c;
-}
-
-::selection {
-  background-color: #0d0d0c;
-  color: #f6f4ef;
-}
-
-/* thin, editorial scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-}
-::-webkit-scrollbar-track {
-  background: #f6f4ef;
-}
-::-webkit-scrollbar-thumb {
-  background: #d8d3c4;
-  border-radius: 999px;
-}
-
-.container-edge {
-  @apply mx-auto w-full max-w-[1400px] px-6 md:px-10;
-}
-
-.hairline {
-  @apply border-line;
-}
-
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 bg-ink text-paper px-6 py-3 text-[13px] uppercase tracking-widest2 transition-colors duration-300 ease-smooth hover:bg-rust disabled:opacity-40 disabled:pointer-events-none;
-}
-
-.btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 border border-ink px-6 py-3 text-[13px] uppercase tracking-widest2 transition-colors duration-300 ease-smooth hover:bg-ink hover:text-paper disabled:opacity-40 disabled:pointer-events-none;
-}
-
-.btn-ghost {
-  @apply inline-flex items-center gap-1 text-[13px] uppercase tracking-widest2 underline underline-offset-4 decoration-line hover:decoration-ink transition-colors;
-}
-
-.input-field {
-  @apply w-full border border-line bg-transparent px-4 py-3 text-[15px] outline-none transition-colors duration-200 focus:border-ink placeholder:text-ink/40;
-}
-
-.label-eyebrow {
-  @apply text-[11px] uppercase tracking-widest2 text-ink/60;
-}
-
-.fade-up {
-  animation: fadeUp 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
-}
-
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
+@layer base {
+  :root {
+    --color-paper: 246 248 247;
+    --color-surface: 255 255 255;
+    --color-ink: 26 29 27;
+    --color-ink-soft: 86 95 90;
+    --color-ink-faint: 138 146 140;
+    --color-line: 225 230 227;
+    --color-line-soft: 239 243 240;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  :root.dark {
+    color-scheme: dark;
+    --color-paper: 18 20 23;
+    --color-surface: 28 31 35;
+    --color-ink: 242 244 243;
+    --color-ink-soft: 178 185 180;
+    --color-ink-faint: 122 131 126;
+    --color-line: 45 50 53;
+    --color-line-soft: 36 40 43;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased transition-colors duration-150;
+  }
+
+  ::selection {
+    @apply bg-accent-100 text-accent-900;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent-500 text-white hover:bg-accent-600;
+  }
+
+  .btn-secondary {
+    @apply btn border border-ink/25 bg-transparent text-ink hover:bg-line-soft;
+  }
+
+  .btn-ghost {
+    @apply btn text-accent-500 hover:underline;
+  }
+
+  .input-field {
+    @apply w-full rounded-md border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100;
+  }
+
+  .label-field {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wideish text-ink-soft;
+  }
+
+  .card {
+    @apply rounded-md border border-line bg-surface shadow-card transition-shadow duration-150 hover:shadow-hover;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wideish text-ink-faint;
+  }
+
+  .link-accent {
+    @apply text-accent-500 hover:text-accent-600 hover:underline;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

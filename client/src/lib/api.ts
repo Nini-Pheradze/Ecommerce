@@ -1,91 +1,34 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+import axios, { AxiosError } from 'axios';
 
-export class ApiRequestError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-  }
-}
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const SERVER_ORIGIN = API_URL.replace(/\/api\/?$/, '');
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("nodeship_token");
-}
+export const api = axios.create({
+  baseURL: API_URL,
+});
 
-export function setToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (token) window.localStorage.setItem("nodeship_token", token);
-  else window.localStorage.removeItem("nodeship_token");
-}
-
-interface RequestOptions extends RequestInit {
-  auth?: boolean;
-}
-
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { auth = false, headers, ...rest } = options;
-
-  const finalHeaders: Record<string, string> = {
-    ...(headers as Record<string, string>),
-  };
-
-  const isFormData = rest.body instanceof FormData;
-  if (!isFormData) {
-    finalHeaders["Content-Type"] = "application/json";
-  }
-
-  if (auth) {
-    const token = getToken();
-    if (token) finalHeaders["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: finalHeaders,
-    cache: "no-store",
-  });
-
-  let body: any = null;
-  const text = await res.text();
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = null;
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = window.localStorage.getItem('shopspace_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
   }
+  return config;
+});
 
-  if (!res.ok) {
-    const message = body?.message || `Request failed with status ${res.status}`;
-    throw new ApiRequestError(message, res.status);
+export function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const err = error as AxiosError<{ message?: string }>;
+    return err.response?.data?.message || err.message || 'Something went wrong';
   }
-
-  return body as T;
+  if (error instanceof Error) return error.message;
+  return 'Something went wrong';
 }
 
-export const api = {
-  get: <T>(path: string, auth = false) => request<T>(path, { method: "GET", auth }),
-  post: <T>(path: string, data?: unknown, auth = false) =>
-    request<T>(path, {
-      method: "POST",
-      auth,
-      body: data instanceof FormData ? data : JSON.stringify(data ?? {}),
-    }),
-  patch: <T>(path: string, data?: unknown, auth = false) =>
-    request<T>(path, {
-      method: "PATCH",
-      auth,
-      body: data instanceof FormData ? data : JSON.stringify(data ?? {}),
-    }),
-  delete: <T>(path: string, auth = false) => request<T>(path, { method: "DELETE", auth }),
-};
-
-export function productImageUrl(filename?: string): string | null {
+export function productImageUrl(filename?: string | null): string | null {
   if (!filename) return null;
-  if (filename.startsWith("http")) return filename;
-  const base = API_URL.replace(/\/api\/?$/, "");
-  return `${base}/public/img/${filename}`;
+  // Cloudinary (და ნებისმიერი სხვა) სურათები უკვე სრული URL-ის სახით ინახება ბაზაში
+  if (/^https?:\/\//i.test(filename)) return filename;
+  return `${SERVER_ORIGIN}/public/img/${filename}`;
 }
-
-export { API_URL };

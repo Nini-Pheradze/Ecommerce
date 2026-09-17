@@ -1,48 +1,46 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import type { Product } from "@/types";
-import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
-import WishlistButton from "./WishlistButton";
+import { useMemo, useState } from 'react';
+import { Minus, Plus, ShoppingBag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import type { Product } from '@/types';
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function AddToCartPanel({ product }: { product: Product }) {
-  const { isAuthenticated } = useAuth();
-  const { addItem } = useCart();
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { t } = useLanguage();
   const router = useRouter();
+  const [quantity, setQuantity] = useState(1);
+  const [size, setSize] = useState<string | null>(null);
+  const [color, setColor] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const sizes = useMemo(
-    () => Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))),
+    () => Array.from(new Set((product.variants ?? []).map((v) => v.size).filter(Boolean))) as string[],
     [product.variants]
   );
   const colors = useMemo(
-    () => Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))),
+    () => Array.from(new Set((product.variants ?? []).map((v) => v.color).filter(Boolean))) as string[],
     [product.variants]
   );
-
-  const [size, setSize] = useState<string | undefined>(sizes[0] as string | undefined);
-  const [color, setColor] = useState<string | undefined>(colors[0] as string | undefined);
-  const [quantity, setQuantity] = useState(1);
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
 
   const outOfStock = product.stock <= 0;
 
   async function handleAdd() {
-    if (!isAuthenticated) {
-      router.push("/login");
+    if (!user) {
+      router.push('/login');
       return;
     }
-    setStatus("loading");
-    setErrorMsg("");
+    setSubmitting(true);
     try {
-      await addItem(product._id, quantity);
-      setStatus("done");
-      setTimeout(() => setStatus("idle"), 1800);
-    } catch (err: any) {
-      setStatus("error");
-      setErrorMsg(err?.message || "Could not add to cart");
+      await addToCart(product._id, quantity);
+    } catch {
+      // toast handled in context
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -50,14 +48,16 @@ export default function AddToCartPanel({ product }: { product: Product }) {
     <div className="space-y-6">
       {sizes.length > 0 && (
         <div>
-          <p className="label-eyebrow mb-3">Size</p>
+          <span className="label-field">{t('addToCart.size')}</span>
           <div className="flex flex-wrap gap-2">
             {sizes.map((s) => (
               <button
                 key={s}
-                onClick={() => setSize(s as string)}
-                className={`px-4 py-2 text-sm border transition-colors ${
-                  size === s ? "border-ink bg-ink text-paper" : "border-line hover:border-ink"
+                onClick={() => setSize(s)}
+                className={`rounded-md border px-4 py-1.5 text-sm transition-colors ${
+                  size === s
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-line text-ink-soft hover:border-ink/40'
                 }`}
               >
                 {s}
@@ -69,14 +69,16 @@ export default function AddToCartPanel({ product }: { product: Product }) {
 
       {colors.length > 0 && (
         <div>
-          <p className="label-eyebrow mb-3">Color</p>
+          <span className="label-field">{t('addToCart.color')}</span>
           <div className="flex flex-wrap gap-2">
             {colors.map((c) => (
               <button
                 key={c}
-                onClick={() => setColor(c as string)}
-                className={`px-4 py-2 text-sm border transition-colors ${
-                  color === c ? "border-ink bg-ink text-paper" : "border-line hover:border-ink"
+                onClick={() => setColor(c)}
+                className={`rounded-md border px-4 py-1.5 text-sm transition-colors ${
+                  color === c
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-line text-ink-soft hover:border-ink/40'
                 }`}
               >
                 {c}
@@ -87,46 +89,38 @@ export default function AddToCartPanel({ product }: { product: Product }) {
       )}
 
       <div>
-        <p className="label-eyebrow mb-3">Quantity</p>
-        <div className="inline-flex items-center border border-line">
+        <span className="label-field">{t('addToCart.quantity')}</span>
+        <div className="inline-flex items-center rounded-md border border-line">
           <button
             onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            className="w-10 h-10 hover:bg-bone transition-colors"
+            className="p-2.5 text-ink-soft hover:text-ink"
             aria-label="Decrease quantity"
           >
-            −
+            <Minus size={14} />
           </button>
-          <span className="w-10 text-center text-sm">{quantity}</span>
+          <span className="w-8 text-center text-sm font-medium">{quantity}</span>
           <button
-            onClick={() => setQuantity((q) => q + 1)}
-            className="w-10 h-10 hover:bg-bone transition-colors"
+            onClick={() => setQuantity((q) => Math.min(product.stock || 99, q + 1))}
+            className="p-2.5 text-ink-soft hover:text-ink"
             aria-label="Increase quantity"
           >
-            +
+            <Plus size={14} />
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleAdd}
-          disabled={outOfStock || status === "loading"}
-          className="btn-primary flex-1"
-        >
-          {outOfStock
-            ? "Out of stock"
-            : status === "loading"
-            ? "Adding…"
-            : status === "done"
-            ? "Added ✓"
-            : "Add to cart"}
-        </button>
-        <div className="border border-line h-[46px] w-[46px] flex items-center justify-center">
-          <WishlistButton productId={product._id} />
-        </div>
-      </div>
+      <button
+        onClick={handleAdd}
+        disabled={outOfStock || submitting}
+        className="btn-primary w-full py-3.5"
+      >
+        <ShoppingBag size={16} />
+        {outOfStock ? t('addToCart.outOfStock') : submitting ? t('addToCart.adding') : t('addToCart.add')}
+      </button>
 
-      {status === "error" && <p className="text-sm text-rust">{errorMsg}</p>}
+      <p className="text-xs text-ink-faint">
+        {outOfStock ? t('addToCart.currentlyUnavailable') : `${t('addToCart.inStock')} ${product.stock}`}
+      </p>
     </div>
   );
 }

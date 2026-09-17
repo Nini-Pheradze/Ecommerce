@@ -1,5 +1,9 @@
-node_modules
-.next
+/node_modules
+/.next/
+/out/
 .env.local
-out
-*.log
+.env
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts

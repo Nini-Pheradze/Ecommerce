@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -7,72 +7,84 @@ import {
   useEffect,
   useMemo,
   useState,
-} from "react";
-import { api } from "@/lib/api";
-import type { Product } from "@/types";
-import { useAuth } from "./AuthContext";
+  type ReactNode,
+} from 'react';
+import toast from 'react-hot-toast';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import type { ApiResponse, Product } from '@/types';
 
 interface WishlistContextValue {
   items: Product[];
-  ids: Set<string>;
-  loading: boolean;
-  toggle: (productId: string) => Promise<void>;
-  refresh: () => Promise<void>;
+  isLoading: boolean;
+  isWishlisted: (productId: string) => boolean;
+  toggleWishlist: (productId: string) => Promise<void>;
 }
 
 const WishlistContext = createContext<WishlistContextValue | undefined>(undefined);
 
-export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, ready } = useAuth();
+export function WishlistProvider({ children }: { children: ReactNode }) {
+  const { token } = useAuth();
+  const { t } = useLanguage();
   const [items, setItems] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!token) {
       setItems([]);
       return;
     }
-    setLoading(true);
+    setIsLoading(true);
     try {
-      const res = await api.get<{ data: { wishlist: Product[] } }>("/wishlist", true);
-      setItems(res.data.wishlist);
+      const res = await api.get<ApiResponse<{ wishlist: Product[] }>>('/wishlist');
+      setItems(res.data.data.wishlist);
     } catch {
       setItems([]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [token]);
 
   useEffect(() => {
-    if (ready) refresh();
-  }, [ready, refresh]);
+    refresh();
+  }, [refresh]);
 
-  const ids = useMemo(() => new Set(items.map((p) => p._id)), [items]);
+  const isWishlisted = useCallback(
+    (productId: string) => items.some((p) => p._id === productId),
+    [items]
+  );
 
-  const toggle = useCallback(
+  const toggleWishlist = useCallback(
     async (productId: string) => {
-      if (!isAuthenticated) return;
-      if (ids.has(productId)) {
-        const res = await api.delete<{ data: { wishlist: Product[] } }>(
-          `/wishlist/${productId}`,
-          true
-        );
-        setItems(res.data.wishlist);
-      } else {
-        const res = await api.post<{ data: { wishlist: Product[] } }>(
-          "/wishlist",
-          { productId },
-          true
-        );
-        setItems(res.data.wishlist);
+      if (!token) {
+        toast.error(t('toast.loginRequired'));
+        return;
+      }
+      try {
+        if (isWishlisted(productId)) {
+          const res = await api.delete<ApiResponse<{ wishlist: Product[] }>>(
+            `/wishlist/${productId}`
+          );
+          setItems(res.data.data.wishlist);
+          toast.success(t('toast.removedFromWishlist'));
+        } else {
+          const res = await api.post<ApiResponse<{ wishlist: Product[] }>>('/wishlist', {
+            productId,
+          });
+          setItems(res.data.data.wishlist);
+          toast.success(t('toast.addedToWishlist'));
+        }
+      } catch (error) {
+        toast.error(getApiErrorMessage(error));
       }
     },
-    [ids, isAuthenticated]
+    [token, isWishlisted, t]
   );
 
   const value = useMemo(
-    () => ({ items, ids, loading, toggle, refresh }),
-    [items, ids, loading, toggle, refresh]
+    () => ({ items, isLoading, isWishlisted, toggleWishlist }),
+    [items, isLoading, isWishlisted, toggleWishlist]
   );
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
@@ -80,6 +92,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
 export function useWishlist() {
   const ctx = useContext(WishlistContext);
-  if (!ctx) throw new Error("useWishlist must be used within WishlistProvider");
+  if (!ctx) throw new Error('useWishlist must be used within a WishlistProvider');
   return ctx;
 }

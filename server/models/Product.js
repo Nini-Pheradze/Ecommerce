@@ -25,10 +25,23 @@ const productSchema = new mongoose.Schema(
         type: String,
         trim: true,
         },
+        imageCover: {
+        type: String,
+        default: null,
+        },
+        images: {
+        type: [String],
+        default: [],
+        },
         category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
         required: [true, 'A product must belong to a category'],
+        },
+        seller: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: [true, 'A product must belong to a seller'],
         },
         stock: {
         type: Number,
@@ -55,6 +68,13 @@ const productSchema = new mongoose.Schema(
         default: 0,
         },
     }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true }});
+
+// ინდექსები - ფილტრაციისა და ძებნის ოპტიმიზაციისთვის
+productSchema.index({ category: 1 });
+productSchema.index({ seller: 1 });
+productSchema.index({ price: 1 });
+productSchema.index({ 'variants.size': 1, 'variants.color': 1 });
+productSchema.index({ name: 'text', description: 'text' });
 
 // ვირტუალური ველი: გამოთვლილი ფასდაკლების პროცენტი
 productSchema.virtual('discountPercentage').get(function () {

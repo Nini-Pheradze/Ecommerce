@@ -12,5 +12,6 @@ router.get('/users', adminController.getAllUsers);
 router.patch('/users/:id/role', adminController.updateUserRole);
 router.patch('/users/:id/block', adminController.toggleBlockUser);
 router.patch('/users/:id/warn', adminController.warnUser);
+router.delete('/users/:id', adminController.deleteUser);
 
 module.exports = router;

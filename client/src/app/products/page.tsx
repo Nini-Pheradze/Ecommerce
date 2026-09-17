@@ -1,75 +1,50 @@
-import { api } from "@/lib/api";
-import type { Category, ProductListResponse } from "@/types";
-import Filters from "@/components/Filters";
-import ProductGrid from "@/components/ProductGrid";
-import Pagination from "@/components/Pagination";
+'use client';
 
-interface Props {
-  searchParams: Record<string, string | undefined>;
-}
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { api } from '@/lib/api';
+import type { ApiListResponse, Product } from '@/types';
+import ProductGrid from '@/components/ProductGrid';
+import Filters from '@/components/Filters';
+import Pagination from '@/components/Pagination';
+import { useLanguage } from '@/context/LanguageContext';
 
-async function getCategories() {
-  try {
-    const res = await api.get<{ data: { categories: Category[] } }>("/categories");
-    return res.data.categories;
-  } catch {
-    return [];
-  }
-}
+export default function ProductsPage() {
+  const searchParams = useSearchParams();
+  const { t } = useLanguage();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
 
-async function getProducts(searchParams: Props["searchParams"]) {
-  const params = new URLSearchParams();
-  if (searchParams.category) params.set("category", searchParams.category);
-  if (searchParams.sort) params.set("sort", searchParams.sort);
-  if (searchParams.onSale) params.set("onSale", searchParams.onSale);
-  if (searchParams.page) params.set("page", searchParams.page);
-  params.set("limit", "12");
-
-  try {
-    const res = await api.get<ProductListResponse>(`/products?${params.toString()}`);
-    return res;
-  } catch {
-    return {
-      status: "fail",
-      results: 0,
-      totalProducts: 0,
-      currentPage: 1,
-      totalPages: 1,
-      data: { products: [] },
-    } as ProductListResponse;
-  }
-}
-
-export default async function ProductsPage({ searchParams }: Props) {
-  const [categories, productsRes] = await Promise.all([
-    getCategories(),
-    getProducts(searchParams),
-  ]);
-
-  const baseParams = new URLSearchParams();
-  if (searchParams.category) baseParams.set("category", searchParams.category);
-  if (searchParams.sort) baseParams.set("sort", searchParams.sort);
-  if (searchParams.onSale) baseParams.set("onSale", searchParams.onSale);
+  useEffect(() => {
+    setLoading(true);
+    api
+      .get<ApiListResponse<{ products: Product[] }>>(`/products?${searchParams.toString()}`)
+      .then((res) => {
+        setProducts(res.data.data.products);
+        setTotalPages(res.data.totalPages ?? 1);
+        setCurrentPage(res.data.currentPage ?? 1);
+        setTotalResults(res.data.totalProducts ?? res.data.results);
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, [searchParams]);
 
   return (
-    <div className="container-edge py-14">
-      <div className="mb-10">
-        <p className="label-eyebrow mb-3">Catalogue</p>
-        <h1 className="font-display italic text-4xl md:text-5xl">All products</h1>
+    <div className="container-page py-10 sm:py-14">
+      <div className="mb-8">
+        <span className="eyebrow">{t('products.catalog')}</span>
+        <h1 className="mt-2 font-bold text-3xl text-ink">{t('products.allProducts')}</h1>
+        {!loading && <p className="mt-2 text-sm text-ink-faint">{totalResults} {t('products.count')}</p>}
       </div>
 
-      <div className="grid md:grid-cols-[220px_1fr] gap-12">
-        <Filters categories={categories} />
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_1fr]">
+        <Filters />
         <div>
-          <p className="text-sm text-ink/50 mb-6">
-            {productsRes.totalProducts} result{productsRes.totalProducts !== 1 ? "s" : ""}
-          </p>
-          <ProductGrid products={productsRes.data.products} />
-          <Pagination
-            currentPage={productsRes.currentPage}
-            totalPages={productsRes.totalPages}
-            baseParams={baseParams}
-          />
+          <ProductGrid products={products} loading={loading} />
+          <Pagination currentPage={currentPage} totalPages={totalPages} />
         </div>
       </div>
     </div>

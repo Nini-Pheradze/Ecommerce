@@ -1,112 +1,197 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { api } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
-import type { Review } from "@/types";
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Star, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import type { ApiListResponse, ApiResponse, Review } from '@/types';
 
-export default function ReviewSection({
-  productId,
-  initialReviews,
-}: {
-  productId: string;
-  initialReviews: Review[];
-}) {
-  const { isAuthenticated } = useAuth();
-  const [reviews, setReviews] = useState(initialReviews);
+function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <button type="button" key={i} onClick={() => onChange(i + 1)} aria-label={`Rate ${i + 1}`}>
+          <Star
+            size={22}
+            className={i + 1 <= value ? 'fill-clay text-clay' : 'fill-transparent text-line'}
+            strokeWidth={1.5}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function ReviewSection({ productId }: { productId: string }) {
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(5);
-  const [text, setText] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState(5);
+  const [editText, setEditText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  useEffect(() => {
+    api
+      .get<ApiListResponse<{ reviews: Review[] }>>(`/reviews?product=${productId}`)
+      .then((res) => setReviews(res.data.data.reviews))
+      .finally(() => setLoading(false));
+  }, [productId]);
+
+  const myReview = useMemo(
+    () => reviews.find((r) => (typeof r.user === 'object' ? r.user._id : r.user) === user?._id),
+    [reviews, user]
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("loading");
-    setErrorMsg("");
+    if (!text.trim()) return;
+    setSubmitting(true);
     try {
-      const res = await api.post<{ data: { review: Review } }>(
-        "/reviews",
-        { product: productId, rating, review: text },
-        true
-      );
-      setReviews((prev) => [res.data.review, ...prev]);
-      setText("");
-      setRating(5);
-      setStatus("idle");
-    } catch (err: any) {
-      setStatus("error");
-      setErrorMsg(err?.message || "Could not submit review");
+      const res = await api.post<ApiResponse<{ review: Review }>>('/reviews', {
+        product: productId,
+        rating,
+        review: text.trim(),
+      });
+      setReviews((prev) => [res.data.data.review, ...prev]);
+      setText('');
+      toast.success(t('reviews.thankYou'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  return (
-    <div className="grid md:grid-cols-2 gap-12">
-      <div>
-        <p className="label-eyebrow mb-6">
-          {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-        </p>
-        <div className="space-y-8">
-          {reviews.length === 0 && (
-            <p className="text-sm text-ink/50">No reviews yet — be the first.</p>
-          )}
-          {reviews.map((r) => (
-            <div key={r._id} className="border-b border-line pb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">
-                  {typeof r.user === "object" ? r.user.name : "Customer"}
-                </span>
-                <span className="text-xs font-mono text-ink/50">
-                  {"★".repeat(r.rating)}
-                  <span className="text-ink/20">{"★".repeat(5 - r.rating)}</span>
-                </span>
-              </div>
-              <p className="text-sm text-ink/70">{r.review}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+  function startEdit(review: Review) {
+    setEditingId(review._id);
+    setEditRating(review.rating);
+    setEditText(review.review);
+  }
 
-      <div>
-        <p className="label-eyebrow mb-6">Write a review</p>
-        {isAuthenticated ? (
-          <form onSubmit={submit} className="space-y-4">
-            <div>
-              <label className="label-eyebrow block mb-2">Rating</label>
-              <select
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-                className="input-field"
-              >
-                {[5, 4, 3, 2, 1].map((n) => (
-                  <option key={n} value={n}>
-                    {n} star{n !== 1 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label-eyebrow block mb-2">Your review</label>
-              <textarea
-                required
-                rows={4}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className="input-field resize-none"
-                placeholder="Tell us what you thought…"
-              />
-            </div>
-            {status === "error" && <p className="text-sm text-rust">{errorMsg}</p>}
-            <button type="submit" disabled={status === "loading"} className="btn-secondary">
-              {status === "loading" ? "Submitting…" : "Submit review"}
-            </button>
-            <p className="text-xs text-ink/40">
-              Reviews are limited to customers who have purchased this product.
-            </p>
-          </form>
-        ) : (
-          <p className="text-sm text-ink/50">Log in to leave a review.</p>
-        )}
-      </div>
+  async function handleSaveEdit(id: string) {
+    setSavingEdit(true);
+    try {
+      const res = await api.patch<ApiResponse<{ review: Review }>>(`/reviews/${id}`, {
+        rating: editRating,
+        review: editText.trim(),
+      });
+      setReviews((prev) => prev.map((r) => (r._id === id ? res.data.data.review : r)));
+      setEditingId(null);
+      toast.success(t('reviews.updated'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm(t('reviews.confirmDelete'))) return;
+    try {
+      await api.delete(`/reviews/${id}`);
+      setReviews((prev) => prev.filter((r) => r._id !== id));
+      toast.success(t('reviews.deleted'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  }
+
+  const canManage = (review: Review) => {
+    if (!user) return false;
+    const isOwner = (typeof review.user === 'object' ? review.user._id : review.user) === user._id;
+    return isOwner || user.role === 'admin' || user.role === 'moderator';
+  };
+
+  return (
+    <div className="space-y-8">
+      {user && !myReview && (
+        <form onSubmit={handleSubmit} className="card space-y-4 p-6">
+          <div>
+            <span className="label-field">{t('reviews.yourReview')}</span>
+            <StarPicker value={rating} onChange={setRating} />
+          </div>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t('reviews.placeholder')}
+            rows={3}
+            className="input-field resize-none"
+          />
+          <button type="submit" disabled={submitting} className="btn-primary">
+            {submitting ? t('reviews.submitting') : t('reviews.submit')}
+          </button>
+          <p className="text-xs text-ink-faint">{t('reviews.purchaseNote')}</p>
+        </form>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-ink-faint">{t('reviews.loading')}</p>
+      ) : reviews.length === 0 ? (
+        <p className="text-sm text-ink-faint">{t('reviews.none')}</p>
+      ) : (
+        <ul className="space-y-6">
+          {reviews.map((r) => (
+            <li key={r._id} className="border-b border-line pb-6 last:border-0">
+              {editingId === r._id ? (
+                <div className="space-y-3">
+                  <StarPicker value={editRating} onChange={setEditRating} />
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    rows={3}
+                    className="input-field resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => handleSaveEdit(r._id)} disabled={savingEdit} className="btn-primary text-xs">
+                      {savingEdit ? t('form.saving') : t('reviews.save')}
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="btn-ghost text-xs">{t('reviews.cancel')}</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            size={13}
+                            className={i + 1 <= r.rating ? 'fill-clay text-clay' : 'fill-transparent text-line'}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs font-medium text-ink-soft">
+                        {typeof r.user === 'object' ? r.user.name : t('reviews.anonymous')}
+                      </span>
+                    </div>
+                    {canManage(r) && (
+                      <div className="flex gap-1">
+                        {(typeof r.user === 'object' ? r.user._id : r.user) === user?._id && (
+                          <button onClick={() => startEdit(r)} className="rounded p-1 text-ink-faint hover:text-ink" aria-label="Edit">
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(r._id)} className="rounded p-1 text-ink-faint hover:text-clay" aria-label="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed text-ink-soft">{r.review}</p>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

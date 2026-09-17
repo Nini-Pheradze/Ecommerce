@@ -52,7 +52,19 @@ exports.toggleBlockUser = catchAsync(async (req, res) => {
     });
 });
 
-// 4. მომხმარებლისთვის გაფრთხილების (Warning) მიცემა
+// 4. მომხმარებლის წაშლა
+exports.deleteUser = catchAsync(async (req, res) => {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+        return res.status(404).json({ status: 'fail', message: 'User not found' });
+    }
+    res.status(204).json({
+        status: 'success',
+        data: null
+    });
+});
+
+// 5. მომხმარებლისთვის გაფრთხილების (Warning) მიცემა
 exports.warnUser = catchAsync(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) {

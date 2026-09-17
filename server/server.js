@@ -1,9 +1,13 @@
+// Sentry ინსტრუმენტაცია (და .env-ის ჩატვირთვა) უნდა მოხდეს ყველაფერზე ადრე
+const Sentry = require('./instrument');
+
 const express = require('express');
-const dotenv = require('dotenv');
 const session = require('express-session');
+const cors = require('cors');
 const path = require('path');
-// const Sentry = require("@sentry/node"); // დროებით ვთიშავთ
 const connectDB = require('./config/db');
+const globalErrorHandler = require('./middleware/errorMiddleware');
+const orderController = require('./controllers/orderController');
 const authRouter = require('./routes/authRoutes');
 const productRouter = require('./routes/productRoutes');
 const searchRouter = require('./routes/searchRoutes');
@@ -14,26 +18,27 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
-// .env ფაილის ჩატვირთვა
-dotenv.config();
+const supportRoutes = require('./routes/supportRoutes');
 
 const app = express();
 
-/* 
-Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    tracesSampleRate: 1.0
-});
-
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
-*/
+// Express 5-ში ნაგულისხმევი query parser შეიცვალა 'simple'-ზე, რომელსაც არ ესმის
+// bracket notation (price[gte]=10) - 'extended'-ზე დაბრუნება აღადგენს ამ ქცევას
+app.set('query parser', 'extended');
 
 const passport = require('./config/passport');
 
 // ბაზასთან დაკავშირება
 connectDB();
+
+// CORS - საშუალებას აძლევს ცალკე გაშვებულ Frontend-ს (Next.js) დაუკავშირდეს API-ს
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    credentials: true,
+}));
+
+// Stripe Webhook - raw body სჭირდება ხელმოწერის ვერიფიკაციისთვის, ამიტომ express.json()-მდეა
+app.post('/api/orders/webhook', express.raw({ type: 'application/json' }), orderController.stripeWebhook);
 
 // Middleware JSON ტანის (body) წასაკითხად
 app.use(express.json());
@@ -63,22 +68,15 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
 
-/* 
-// Sentry Error Handler
-app.use(Sentry.Handlers.errorHandler());
-*/
+// Sentry Error Handler - აფიქსირებს დაუჭერელ შეცდომებს Sentry-ში, სანამ ჩვენს handler-ს მიაღწევს
+if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+}
 
 // გლობალური Error Handling Middleware
-app.use((err, req, res, next) => {
-    err.statusCode = err.statusCode || 500;
-    err.status = err.status || 'error';
-
-    res.status(err.statusCode).json({
-        status: err.status,
-        message: err.message,
-    });
-});
+app.use(globalErrorHandler);
 
 // სერვერის გაშვება
 const PORT = process.env.PORT || 5000;

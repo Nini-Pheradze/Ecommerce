@@ -1,136 +1,135 @@
-import Image from "next/image";
-import { notFound } from "next/navigation";
-import { api, productImageUrl } from "@/lib/api";
-import type { Product, Review } from "@/types";
-import Price from "@/components/Price";
-import Rating from "@/components/Rating";
-import AddToCartPanel from "@/components/AddToCartPanel";
-import ReviewSection from "@/components/ReviewSection";
-import ProductGrid from "@/components/ProductGrid";
+'use client';
 
-interface Props {
-  params: { id: string };
-}
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ChevronRight, ImageOff } from 'lucide-react';
+import { api, productImageUrl } from '@/lib/api';
+import type { ApiResponse, Category, Product } from '@/types';
+import Price from '@/components/Price';
+import Rating from '@/components/Rating';
+import AddToCartPanel from '@/components/AddToCartPanel';
+import ReviewSection from '@/components/ReviewSection';
+import { useLanguage } from '@/context/LanguageContext';
 
-async function getProduct(id: string) {
-  try {
-    const res = await api.get<{ data: { product: Product } }>(`/products/${id}`);
-    return res.data.product;
-  } catch {
-    return null;
-  }
-}
+export default function ProductDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { t } = useLanguage();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
-async function getReviews(id: string) {
-  try {
-    const res = await api.get<{ data: { reviews: Review[] } }>(`/reviews`);
-    // The reviews route isn't nested under /products/:id on the backend, so it
-    // always returns every review — filter down to this product on the client.
-    return res.data.reviews.filter((r) => r.product === id);
-  } catch {
-    return [];
-  }
-}
+  useEffect(() => {
+    setLoading(true);
+    setNotFound(false);
+    api
+      .get<ApiResponse<{ product: Product }>>(`/products/${id}`)
+      .then((res) => {
+        const p = res.data.data.product;
+        setProduct(p);
+        setActiveImage(p.imageCover ?? p.images?.[0] ?? null);
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-async function getRelated(categoryId: string, excludeId: string) {
-  try {
-    const res = await api.get<{ data: { products: Product[] } }>(
-      `/products?category=${categoryId}&limit=4`
+  if (loading) {
+    return (
+      <div className="container-page py-14">
+        <div className="grid gap-10 lg:grid-cols-2">
+          <div className="aspect-square animate-pulse rounded-md bg-line-soft" />
+          <div className="space-y-4">
+            <div className="h-4 w-24 animate-pulse rounded bg-line-soft" />
+            <div className="h-8 w-2/3 animate-pulse rounded bg-line-soft" />
+            <div className="h-6 w-24 animate-pulse rounded bg-line-soft" />
+          </div>
+        </div>
+      </div>
     );
-    return res.data.products.filter((p) => p._id !== excludeId);
-  } catch {
-    return [];
   }
-}
 
-export default async function ProductDetailPage({ params }: Props) {
-  const product = await getProduct(params.id);
-  if (!product) notFound();
+  if (notFound || !product) {
+    return (
+      <div className="container-page py-24 text-center">
+        <p className="text-sm text-ink-soft">{t('products.notFound')}</p>
+        <Link href="/products" className="btn-secondary mt-6 inline-flex">
+          {t('products.backToCatalog')}
+        </Link>
+      </div>
+    );
+  }
 
-  const categoryId =
-    typeof product.category === "object" ? product.category._id : product.category;
+  const gallery = [product.imageCover, ...(product.images ?? [])].filter(
+    (v, i, arr): v is string => !!v && arr.indexOf(v) === i
+  );
   const categoryName =
-    typeof product.category === "object" ? product.category.name : undefined;
-
-  const [reviews, related] = await Promise.all([
-    getReviews(product._id),
-    getRelated(categoryId, product._id),
-  ]);
-
-  const coverImg = productImageUrl(product.imageCover);
-  const galleryImgs = (product.images ?? []).map((f) => productImageUrl(f)).filter(Boolean) as string[];
+    product.category && typeof product.category === 'object' ? product.category.name : undefined;
+  const activeImageUrl = productImageUrl(activeImage);
 
   return (
-    <div className="container-edge py-14">
-      <div className="grid md:grid-cols-2 gap-12 lg:gap-20">
-        {/* Gallery */}
-        <div className="space-y-3">
-          <div className="relative aspect-[4/5] bg-bone overflow-hidden">
-            {coverImg ? (
-              <Image src={coverImg} alt={product.name} fill className="object-cover" />
+    <div className="container-page py-10 sm:py-14">
+      <nav className="mb-8 flex items-center gap-1.5 text-xs text-ink-faint">
+        <Link href="/" className="hover:text-ink">{t('products.home')}</Link>
+        <ChevronRight size={12} />
+        <Link href="/products" className="hover:text-ink">{t('products.products')}</Link>
+        <ChevronRight size={12} />
+        <span className="text-ink-soft">{product.name}</span>
+      </nav>
+
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+        <div>
+          <div className="relative aspect-square overflow-hidden rounded-md bg-line-soft">
+            {activeImageUrl ? (
+              <Image src={activeImageUrl} alt={product.name} fill sizes="(min-width: 1024px) 45vw, 90vw" className="object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <span className="font-display italic text-8xl text-ink/15">
-                  {product.name.charAt(0).toUpperCase()}
-                </span>
+              <div className="flex h-full w-full items-center justify-center text-ink-faint">
+                <ImageOff size={40} strokeWidth={1.25} />
               </div>
             )}
           </div>
-          {galleryImgs.length > 0 && (
-            <div className="grid grid-cols-4 gap-3">
-              {galleryImgs.map((src, i) => (
-                <div key={i} className="relative aspect-square bg-bone overflow-hidden">
-                  <Image src={src} alt={`${product.name} ${i + 1}`} fill className="object-cover" />
-                </div>
+          {gallery.length > 1 && (
+            <div className="mt-4 flex gap-3">
+              {gallery.map((img) => (
+                <button
+                  key={img}
+                  onClick={() => setActiveImage(img)}
+                  className={`relative h-16 w-16 overflow-hidden rounded-xl border transition-colors ${
+                    activeImage === img ? 'border-ink' : 'border-line'
+                  }`}
+                >
+                  <Image src={productImageUrl(img)!} alt="" fill sizes="64px" className="object-cover" />
+                </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Info */}
         <div>
-          {categoryName && <p className="label-eyebrow mb-3 text-ink/50">{categoryName}</p>}
-          <h1 className="font-display italic text-3xl md:text-4xl mb-3">{product.name}</h1>
-          {product.ratingsQuantity > 0 && (
-            <div className="mb-4">
-              <Rating average={product.ratingsAverage} quantity={product.ratingsQuantity} size="md" />
-            </div>
-          )}
-          <div className="mb-6">
+          {categoryName && <span className="eyebrow">{categoryName}</span>}
+          <h1 className="mt-2 font-bold text-3xl text-ink sm:text-4xl">{product.name}</h1>
+          <div className="mt-3">
+            <Rating average={product.ratingsAverage} count={product.ratingsQuantity} />
+          </div>
+          <div className="mt-5">
             <Price price={product.price} compareAtPrice={product.compareAtPrice} size="lg" />
           </div>
           {product.description && (
-            <p className="text-ink/70 leading-relaxed mb-8 max-w-[54ch]">{product.description}</p>
+            <p className="mt-6 max-w-lg text-sm leading-relaxed text-ink-soft">
+              {product.description}
+            </p>
           )}
-
-          <AddToCartPanel product={product} />
-
-          <dl className="mt-10 pt-8 border-t border-line grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="label-eyebrow text-ink/40">SKU</dt>
-              <dd className="font-mono mt-1">{product.sku}</dd>
-            </div>
-            <div>
-              <dt className="label-eyebrow text-ink/40">Availability</dt>
-              <dd className="mt-1">{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</dd>
-            </div>
-          </dl>
+          <div className="mt-8 border-t border-line pt-8">
+            <AddToCartPanel product={product} />
+          </div>
         </div>
       </div>
 
-      {/* Reviews */}
-      <section className="mt-24 pt-16 border-t border-line">
-        <h2 className="font-display italic text-3xl mb-10">Reviews</h2>
-        <ReviewSection productId={product._id} initialReviews={reviews} />
-      </section>
-
-      {/* Related */}
-      {related.length > 0 && (
-        <section className="mt-24 pt-16 border-t border-line">
-          <h2 className="font-display italic text-3xl mb-10">You might also like</h2>
-          <ProductGrid products={related} />
-        </section>
-      )}
+      <div className="mt-20 max-w-2xl border-t border-line pt-12">
+        <h2 className="mb-6 font-bold text-2xl text-ink">{t('products.reviews')}</h2>
+        <ReviewSection productId={product._id} />
+      </div>
     </div>
   );
 }

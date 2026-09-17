@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -7,100 +7,91 @@ import {
   useEffect,
   useMemo,
   useState,
-} from "react";
-import { api } from "@/lib/api";
-import type { Cart } from "@/types";
-import { useAuth } from "./AuthContext";
+  type ReactNode,
+} from 'react';
+import toast from 'react-hot-toast';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import type { ApiResponse, Cart, CartItem } from '@/types';
 
 interface CartContextValue {
   cart: Cart | null;
-  loading: boolean;
+  items: CartItem[];
+  isLoading: boolean;
   itemCount: number;
   subtotal: number;
+  addToCart: (productId: string, quantity?: number) => Promise<void>;
+  removeFromCart: (productId: string) => Promise<void>;
   refresh: () => Promise<void>;
-  addItem: (productId: string, quantity?: number) => Promise<void>;
-  removeItem: (productId: string) => Promise<void>;
-  updateQuantity: (productId: string, quantity: number) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, ready } = useAuth();
+export function CartProvider({ children }: { children: ReactNode }) {
+  const { token } = useAuth();
+  const { t } = useLanguage();
   const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!token) {
       setCart(null);
       return;
     }
-    setLoading(true);
+    setIsLoading(true);
     try {
-      const res = await api.get<{ data: { cart: Cart } }>("/cart", true);
-      setCart(res.data.cart);
+      const res = await api.get<ApiResponse<{ cart: Cart }>>('/cart');
+      setCart(res.data.data.cart);
     } catch {
       setCart(null);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [token]);
 
   useEffect(() => {
-    if (ready) refresh();
-  }, [ready, refresh]);
+    refresh();
+  }, [refresh]);
 
-  const addItem = useCallback(
+  const addToCart = useCallback(
     async (productId: string, quantity = 1) => {
-      const res = await api.post<{ data: { cart: Cart } }>(
-        "/cart",
-        { productId, quantity },
-        true
-      );
-      setCart(res.data.cart);
+      if (!token) {
+        toast.error(t('toast.loginRequired'));
+        throw new Error('Not authenticated');
+      }
+      try {
+        const res = await api.post<ApiResponse<{ cart: Cart }>>('/cart', { productId, quantity });
+        setCart(res.data.data.cart);
+        toast.success(t('toast.addedToCart'));
+      } catch (error) {
+        toast.error(getApiErrorMessage(error));
+        throw error;
+      }
     },
-    []
+    [token, t]
   );
 
-  const removeItem = useCallback(async (productId: string) => {
-    const res = await api.delete<{ data: { cart: Cart } }>(`/cart/${productId}`, true);
-    setCart(res.data.cart);
-  }, []);
-
-  // The API only supports incrementing quantity or removing an item entirely,
-  // so "setting" a quantity is done by removing then re-adding at the target count.
-  const updateQuantity = useCallback(async (productId: string, quantity: number) => {
-    await api.delete<{ data: { cart: Cart } }>(`/cart/${productId}`, true);
-    if (quantity > 0) {
-      const res = await api.post<{ data: { cart: Cart } }>(
-        "/cart",
-        { productId, quantity },
-        true
-      );
-      setCart(res.data.cart);
-    } else {
-      const res = await api.get<{ data: { cart: Cart } }>("/cart", true);
-      setCart(res.data.cart);
+  const removeFromCart = useCallback(async (productId: string) => {
+    try {
+      const res = await api.delete<ApiResponse<{ cart: Cart }>>(`/cart/${productId}`);
+      setCart(res.data.data.cart);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+      throw error;
     }
   }, []);
 
-  const itemCount = useMemo(
-    () => cart?.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
-    [cart]
-  );
-
+  const items = useMemo(() => cart?.items.filter((i) => i.product) ?? [], [cart]);
+  const itemCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
   const subtotal = useMemo(
-    () =>
-      cart?.items?.reduce(
-        (sum, item) => sum + (item.product?.price ?? 0) * item.quantity,
-        0
-      ) ?? 0,
-    [cart]
+    () => items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
+    [items]
   );
 
   const value = useMemo(
-    () => ({ cart, loading, itemCount, subtotal, refresh, addItem, removeItem, updateQuantity }),
-    [cart, loading, itemCount, subtotal, refresh, addItem, removeItem, updateQuantity]
+    () => ({ cart, items, isLoading, itemCount, subtotal, addToCart, removeFromCart, refresh }),
+    [cart, items, isLoading, itemCount, subtotal, addToCart, removeFromCart, refresh]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
@@ -108,6 +99,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used within CartProvider");
+  if (!ctx) throw new Error('useCart must be used within a CartProvider');
   return ctx;
 }

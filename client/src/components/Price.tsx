@@ -1,27 +1,33 @@
+function formatPrice(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(value);
+}
+
 export default function Price({
   price,
   compareAtPrice,
-  size = "md",
+  size = 'md',
 }: {
   price: number;
   compareAtPrice?: number | null;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
-  const onSale = !!compareAtPrice && compareAtPrice > price;
+  const hasDiscount = !!compareAtPrice && compareAtPrice > price;
   const sizes = {
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-2xl",
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-3xl',
   };
 
   return (
-    <span className={`font-mono ${sizes[size]} flex items-baseline gap-2`}>
-      <span className={onSale ? "text-rust" : "text-ink"}>${price.toFixed(2)}</span>
-      {onSale && (
-        <span className="text-ink/40 line-through text-[0.8em]">
-          ${compareAtPrice!.toFixed(2)}
-        </span>
+    <div className="flex flex-wrap items-baseline gap-2">
+      <span className={`font-bold text-ink ${sizes[size]}`}>{formatPrice(price)}</span>
+      {hasDiscount && (
+        <span className="text-sm text-ink-faint line-through">{formatPrice(compareAtPrice!)}</span>
       )}
-    </span>
+    </div>
   );
 }

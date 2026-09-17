@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema(
             enum: ['user', 'moderator', 'admin'],
             default: 'user',
         },
+        phoneNumber: {
+            type: String,
+        },
+        twoFactorCode: { type: String, select: false },
+        twoFactorExpires: Date,
         password: {
             type: String,
             required: [function() { return !this.googleId; }, 'Please provide a password'],
@@ -44,7 +49,7 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false
         },
-        twoFactorSecret: String, 
+        twoFactorSecret: { type: String, select: false },
         googleId: {
             type: String,
             unique: true,
@@ -62,10 +67,9 @@ const userSchema = new mongoose.Schema(
     }, { timestamps: true });
 
 // პაროლის ჰეშირება შენახვამდე
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password') || !this.password) return next();
+userSchema.pre('save', async function () {
+    if (!this.isModified('password') || !this.password) return;
     this.password = await bcrypt.hash(this.password, 12);
-    next();
 });
 
 // პაროლის შედარების მეთოდი

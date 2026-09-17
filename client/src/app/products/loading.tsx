@@ -1,18 +1,17 @@
-export default function LoadingProducts() {
+import ProductGrid from '@/components/ProductGrid';
+
+export default function ProductsLoading() {
   return (
-    <div className="container-edge py-14">
-      <div className="h-10 w-56 bg-bone animate-pulse mb-10" />
-      <div className="grid md:grid-cols-[220px_1fr] gap-12">
-        <div className="hidden md:block space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-4 w-32 bg-bone animate-pulse" />
-          ))}
+    <div className="container-page py-10 sm:py-14">
+      <div className="mb-8">
+        <div className="h-3 w-16 animate-pulse rounded bg-line-soft" />
+        <div className="mt-3 h-8 w-56 animate-pulse rounded bg-line-soft" />
+      </div>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_1fr]">
+        <div className="hidden lg:block">
+          <div className="h-64 animate-pulse rounded-md bg-line-soft" />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="aspect-[4/5] bg-bone animate-pulse" />
-          ))}
-        </div>
+        <ProductGrid products={[]} loading />
       </div>
     </div>
   );

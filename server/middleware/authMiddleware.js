@@ -20,6 +20,10 @@ exports.protect = catchAsync(async (req, res, next) => {
         return res.status(401).json({ status: 'fail', message: 'User no longer exists' });
     }
 
+    if (currentUser.isBlocked) {
+        return res.status(403).json({ status: 'fail', message: 'Your account has been blocked' });
+    }
+
     req.user = currentUser;
     next();
 });

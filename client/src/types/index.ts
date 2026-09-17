@@ -7,7 +7,7 @@ export interface Category {
 export interface ProductVariant {
   size?: string;
   color?: string;
-  stock: number;
+  stock?: number;
   sku?: string;
 }
 
@@ -17,37 +17,36 @@ export interface Product {
   sku: string;
   price: number;
   compareAtPrice?: number | null;
+  discountPercentage?: number;
   description?: string;
+  imageCover?: string | null;
+  images?: string[];
   category: Category | string;
+  seller?: Pick<User, '_id' | 'name'> | string;
   stock: number;
-  variants: ProductVariant[];
+  variants?: ProductVariant[];
   ratingsAverage: number;
   ratingsQuantity: number;
-  discountPercentage?: number;
-  imageCover?: string;
-  images?: string[];
   createdAt?: string;
-}
-
-export interface ProductListResponse {
-  status: string;
-  results: number;
-  totalProducts: number;
-  currentPage: number;
-  totalPages: number;
-  data: { products: Product[] };
 }
 
 export interface User {
   _id: string;
   name: string;
   email: string;
-  role: "user" | "moderator" | "admin";
+  role: 'user' | 'moderator' | 'admin';
   isVerified?: boolean;
+  isBlocked?: boolean;
+  warningsCount?: number;
+  twoFactorEnabled?: boolean;
+  phoneNumber?: string;
+  googleId?: string;
   wishlist?: string[];
+  createdAt?: string;
 }
 
 export interface CartItem {
+  _id?: string;
   product: Product;
   quantity: number;
 }
@@ -56,15 +55,6 @@ export interface Cart {
   _id?: string;
   user?: string;
   items: CartItem[];
-}
-
-export interface Review {
-  _id: string;
-  review: string;
-  rating: number;
-  product: string;
-  user: { _id: string; name: string } | string;
-  createdAt?: string;
 }
 
 export interface ShippingAddress {
@@ -76,26 +66,76 @@ export interface ShippingAddress {
 export interface OrderItem {
   product: string;
   name?: string;
+  sku?: string;
   quantity: number;
   price: number;
-  sku?: string;
 }
 
 export interface Order {
   _id: string;
-  user: string;
-  orderItems?: OrderItem[];
-  items?: OrderItem[];
+  user: string | Pick<User, '_id' | 'name' | 'email'>;
+  orderItems: OrderItem[];
   shippingAddress: ShippingAddress;
+  subtotal: number;
+  discountAmount: number;
+  couponCode?: string;
   totalPrice: number;
-  subtotal?: number;
-  discountAmount?: number;
-  isPaid?: boolean;
-  status: "Pending" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
-  createdAt?: string;
+  isPaid: boolean;
+  paymentStatus: 'pending' | 'paid' | 'failed';
+  status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  createdAt: string;
 }
 
-export interface ApiError {
+export interface Review {
+  _id: string;
+  review: string;
+  rating: number;
+  product: string;
+  user: { _id: string; name: string } | string;
+  createdAt: string;
+}
+
+export interface SupportMessage {
+  _id: string;
+  sender: { _id: string; name: string; role?: string } | string;
+  text: string;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  _id: string;
+  user: { _id: string; name: string; email: string } | string;
+  subject: string;
+  status: 'open' | 'closed';
+  messages: SupportMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiListResponse<T> {
   status: string;
-  message: string;
+  results: number;
+  totalProducts?: number;
+  currentPage?: number;
+  totalPages?: number;
+  data: T;
+}
+
+export interface ApiResponse<T> {
+  status: string;
+  message?: string;
+  token?: string;
+  data: T;
+}
+
+export interface ProductQuery {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  category?: string;
+  size?: string;
+  color?: string;
+  onSale?: string;
+  'price[gte]'?: number;
+  'price[lte]'?: number;
 }

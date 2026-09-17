@@ -1,5 +1,5 @@
 const twilio = require('twilio');
-dotenv = require('dotenv');
+const dotenv = require('dotenv');
 dotenv.config();
 
 const client = twilio(

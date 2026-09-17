@@ -1,24 +1,32 @@
+import { Star } from 'lucide-react';
+
 export default function Rating({
   average,
-  quantity,
-  size = "sm",
+  count,
+  size = 13,
 }: {
   average: number;
-  quantity: number;
-  size?: "sm" | "md";
+  count?: number;
+  size?: number;
 }) {
-  const rounded = Math.round(average);
-  const textSize = size === "sm" ? "text-xs" : "text-sm";
-
   return (
-    <div className={`flex items-center gap-1.5 ${textSize} text-ink/70`}>
-      <span aria-hidden className="tracking-tight">
-        {"★".repeat(rounded)}
-        <span className="text-ink/25">{"★".repeat(5 - rounded)}</span>
-      </span>
-      <span className="text-ink/50">
-        {average.toFixed(1)} ({quantity})
-      </span>
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => {
+          const filled = i + 1 <= Math.round(average);
+          return (
+            <Star
+              key={i}
+              size={size}
+              className={filled ? 'fill-gold text-gold' : 'fill-transparent text-line'}
+              strokeWidth={1.5}
+            />
+          );
+        })}
+      </div>
+      {typeof count === 'number' && (
+        <span className="text-xs link-accent">({count})</span>
+      )}
     </div>
   );
 }

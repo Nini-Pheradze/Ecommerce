@@ -77,7 +77,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     // 1.4 შექმენი შეკვეთა (Pending სტატუსით და unpaid გადახდით)
     const newOrder = await Order.create({
         user: req.user._id,
-        items: orderItems,
+        orderItems,
         shippingAddress,
         subtotal,
         discountAmount,
@@ -100,8 +100,8 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     // 1.7 Stripe Checkout სესიის შექმნა
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
-        success_url: `${req.protocol}://${req.get('host')}/api/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.protocol}://${req.get('host')}/api/orders/cancel`,
+        success_url: `${process.env.CLIENT_URL || 'http://localhost:3000'}/checkout/success?session_id={CHECKOUT_SESSION_ID}&orderId=${newOrder._id}`,
+        cancel_url: `${process.env.CLIENT_URL || 'http://localhost:3000'}/checkout/cancel`,
         customer_email: req.user.email,
         client_reference_id: newOrder._id.toString(),
         line_items: orderItems.map(item => ({
@@ -126,6 +126,34 @@ exports.createOrder = catchAsync(async (req, res, next) => {
         }
     });
 });
+
+// 1.5 Stripe Webhook - გადახდის დადასტურების შემდეგ შეკვეთის სტატუსის განახლება
+exports.stripeWebhook = async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.error('Stripe webhook signature verification failed:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const orderId = session.client_reference_id;
+
+        if (orderId) {
+            await Order.findByIdAndUpdate(orderId, {
+                isPaid: true,
+                paymentStatus: 'paid',
+                status: 'Processing',
+            });
+        }
+    }
+
+    res.status(200).json({ received: true });
+};
 
 // 2. მომხმარებლის შეკვეთების წამოღება
 exports.getMyOrders = catchAsync(async (req, res, next) => {

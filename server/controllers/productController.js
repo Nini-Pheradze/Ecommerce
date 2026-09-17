@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { uploadedFileRef } = require('../middleware/uploadMiddleware');
 
 exports.getAllProducts = catchAsync(async (req, res, next) => {
     const queryObj = { ...req.query };
@@ -11,6 +12,14 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
     const filterCriteria = JSON.parse(queryStr);
+
+    // query string-იდან მოსული ფასის მნიშვნელობები სტრინგებია - Number-ებად უნდა გადავაკონვერტიროთ,
+    // თორემ MongoDB-ის $gte/$lte სტრინგს რიცხვთან ვერ შეადარებს
+    if (filterCriteria.price && typeof filterCriteria.price === 'object') {
+        Object.keys(filterCriteria.price).forEach((op) => {
+            filterCriteria.price[op] = Number(filterCriteria.price[op]);
+        });
+    }
 
     if (req.query.size) {
         filterCriteria['variants.size'] = req.query.size;
@@ -22,7 +31,9 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
         filterCriteria.compareAtPrice = { $gt: 0 };
     }
 
-    let query = Product.find(filterCriteria).populate('category', 'name');
+    let query = Product.find(filterCriteria)
+        .populate('category', 'name')
+        .populate('seller', 'name');
 
     if (req.query.sort) {
         const sortBy = req.query.sort.split(',').join(' ');
@@ -51,7 +62,9 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
 });
 
 exports.getProduct = catchAsync(async (req, res, next) => {
-    const product = await Product.findById(req.params.id).populate('category', 'name');
+    const product = await Product.findById(req.params.id)
+        .populate('category', 'name')
+        .populate('seller', 'name');
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
@@ -62,15 +75,18 @@ exports.getProduct = catchAsync(async (req, res, next) => {
 });
 
 exports.createProduct = catchAsync(async (req, res, next) => {
-    // 💡 ფაილების ატვირთვის დამუშავება Multer-იდან
+    // 💡 ფაილების ატვირთვის დამუშავება Multer-იდან (Cloudinary ან ლოკალური disk, uploadMiddleware-ის მიხედვით)
     if (req.files) {
         if (req.files.imageCover) {
-            req.body.imageCover = req.files.imageCover[0].filename;
+            req.body.imageCover = uploadedFileRef(req.files.imageCover[0]);
         }
         if (req.files.images) {
-            req.body.images = req.files.images.map((file) => file.filename);
+            req.body.images = req.files.images.map(uploadedFileRef);
         }
     }
+
+    // ნებისმიერ ავტორიზებულ მომხმარებელს შეუძლია პროდუქტის გაყიდვა - გამყიდველი ყოველთვის მიმდინარე მომხმარებელია
+    req.body.seller = req.user.id;
 
     const newProduct = await Product.create(req.body);
     res.status(201).json({
@@ -80,25 +96,35 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 });
 
 exports.updateProduct = catchAsync(async (req, res, next) => {
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) {
+        return next(new AppError('Product not found', 404));
+    }
+
+    const isOwner = existingProduct.seller.toString() === req.user.id;
+    const canModerate = ['admin', 'moderator'].includes(req.user.role);
+    if (!isOwner && !canModerate) {
+        return next(new AppError('You do not have permission to edit this product', 403));
+    }
+
     // 💡 განახლებისას თუ ახალი ფოტოები აიტვირთა, განვახლოთ ისინიც
     if (req.files) {
         if (req.files.imageCover) {
-            req.body.imageCover = req.files.imageCover[0].filename;
+            req.body.imageCover = uploadedFileRef(req.files.imageCover[0]);
         }
         if (req.files.images) {
-            req.body.images = req.files.images.map((file) => file.filename);
+            req.body.images = req.files.images.map(uploadedFileRef);
         }
     }
+
+    // გამყიდველის შეცვლა request-ით არ დაიშვება
+    delete req.body.seller;
 
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true,
     });
-    
-    if (!product) {
-        return next(new AppError('Product not found', 404));
-    }
-    
+
     res.status(200).json({
         status: 'success',
         data: { product },
@@ -106,10 +132,18 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteProduct = catchAsync(async (req, res, next) => {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findById(req.params.id);
     if (!product) {
         return next(new AppError('Product not found', 404));
     }
+
+    const isOwner = product.seller.toString() === req.user.id;
+    const canModerate = ['admin', 'moderator'].includes(req.user.role);
+    if (!isOwner && !canModerate) {
+        return next(new AppError('You do not have permission to delete this product', 403));
+    }
+
+    await product.deleteOne();
     res.status(204).json({
         status: 'success',
         data: null,

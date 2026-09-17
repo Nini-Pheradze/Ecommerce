@@ -1,32 +1,31 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { useWishlist } from "@/context/WishlistContext";
+import { Heart } from 'lucide-react';
+import { useWishlist } from '@/context/WishlistContext';
 
-export default function WishlistButton({ productId }: { productId: string }) {
-  const { isAuthenticated } = useAuth();
-  const { ids, toggle } = useWishlist();
-  const router = useRouter();
-  const active = ids.has(productId);
+export default function WishlistButton({
+  productId,
+  className = '',
+}: {
+  productId: string;
+  className?: string;
+}) {
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const active = isWishlisted(productId);
 
   return (
     <button
-      aria-label={active ? "Remove from wishlist" : "Add to wishlist"}
+      type="button"
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!isAuthenticated) {
-          router.push("/login");
-          return;
-        }
-        toggle(productId);
+        toggleWishlist(productId);
       }}
-      className={`h-8 w-8 flex items-center justify-center rounded-full bg-paper/90 backdrop-blur transition-colors ${
-        active ? "text-rust" : "text-ink/50 hover:text-ink"
-      }`}
+      aria-pressed={active}
+      aria-label={active ? 'Remove from wishlist' : 'Add to wishlist'}
+      className={`inline-flex items-center justify-center rounded-full border border-line bg-surface/95 p-1.5 text-ink-soft shadow-card transition-colors hover:text-clay ${className}`}
     >
-      {active ? "♥" : "♡"}
+      <Heart size={15} className={active ? 'fill-clay text-clay' : ''} />
     </button>
   );
 }
