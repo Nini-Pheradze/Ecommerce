@@ -32,8 +32,19 @@ const passport = require('./config/passport');
 connectDB();
 
 // CORS - საშუალებას აძლევს ცალკე გაშვებულ Frontend-ს (Next.js) დაუკავშირდეს API-ს
+// CLIENT_URL შეიძლება მოვიდეს ბოლოში ხაზთან ერთად (მაგ. Render dashboard-ში ჩასმისას),
+// მაშინ როცა ბრაუზერის Origin header არასდროს შეიცავს ბოლო ხაზს - ამიტომ ვასწორებთ
+// ორივე მხარეს შედარებამდე, თორემ CORS ჩუმად უარყოფს ყველა მოთხოვნას.
+const normalizeOrigin = (url) => url.trim().replace(/\/+$/, '');
+const allowedOrigin = normalizeOrigin(process.env.CLIENT_URL || 'http://localhost:3000');
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        if (!origin || normalizeOrigin(origin) === allowedOrigin) {
+            return callback(null, true);
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
 }));
 

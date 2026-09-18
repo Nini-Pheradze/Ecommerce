@@ -1,6 +1,14 @@
 import axios, { AxiosError } from 'axios';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// NEXT_PUBLIC_API_URL ხანდახან Vercel-ის dashboard-ში ემატება '/api' სუფიქსის გარეშე
+// (მაგ. https://shopspace-api.onrender.com ნაცვლად .../api-სი) - ამის გამო ყველა მოთხოვნა
+// (მათ შორის Google login-ის ბმულიც) არასწორ endpoint-ზე მიდიოდა
+function normalizeApiUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return /\/api$/.test(trimmed) ? trimmed : `${trimmed}/api`;
+}
+
+export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api');
 export const SERVER_ORIGIN = API_URL.replace(/\/api\/?$/, '');
 
 export const api = axios.create({
