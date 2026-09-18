@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -9,6 +9,14 @@ import ProductGrid from '@/components/ProductGrid';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const { t } = useLanguage();
   const query = searchParams.get('query') ?? '';

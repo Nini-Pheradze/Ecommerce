@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,14 @@ import { getApiErrorMessage } from '@/lib/api';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={null}>
+      <OAuthCallbackContent />
+    </Suspense>
+  );
+}
+
+function OAuthCallbackContent() {
   const { loginWithToken, completeTwoFactorLogin } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();

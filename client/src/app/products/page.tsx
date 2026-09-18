@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import type { ApiListResponse, Product } from '@/types';
@@ -10,6 +10,14 @@ import Pagination from '@/components/Pagination';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageContent />
+    </Suspense>
+  );
+}
+
+function ProductsPageContent() {
   const searchParams = useSearchParams();
   const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
