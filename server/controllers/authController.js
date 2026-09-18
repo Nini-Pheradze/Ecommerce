@@ -115,6 +115,36 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
+// @desc    Resend the email verification link to the logged-in user
+// @route   POST /api/auth/resend-verification
+exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  if (user.isVerified) {
+    return res.status(200).json({ status: 'success', message: 'Email is already verified' });
+  }
+
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  user.emailVerificationToken = verificationToken;
+  user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+  await user.save({ validateBeforeSave: false });
+
+  const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'დაადასტურე შენი ShopSpace ანგარიში',
+      message: `გთხოვთ დაადასტუროთ თქვენი ელ. ფოსტა შემდეგ ბმულზე გადასვლით: ${verifyUrl}`,
+      html: `<p>გამარჯობა ${user.name},</p><p>გთხოვთ დაადასტუროთ თქვენი ელ. ფოსტა <a href="${verifyUrl}">ბმულზე</a> გადასვლით.</p>`
+    });
+  } catch (err) {
+    return next(new AppError('Failed to send verification email. Please try again later.', 500));
+  }
+
+  res.status(200).json({ status: 'success', message: 'Verification email sent' });
+});
+
 // @desc    Verify the 2FA code presented after a password login and issue the real session token
 // @route   POST /api/auth/login/verify-2fa
 exports.verifyLogin2FA = catchAsync(async (req, res, next) => {

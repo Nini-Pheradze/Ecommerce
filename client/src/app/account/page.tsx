@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogOut, Package, ShieldAlert, Store } from 'lucide-react';
-import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
+import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import ProfileSettings from '@/components/ProfileSettings';
@@ -49,6 +50,19 @@ export default function AccountPage() {
   const [tab, setTab] = useState<TabKey>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  async function handleResendVerification() {
+    setResendingVerification(true);
+    try {
+      await api.post('/auth/resend-verification');
+      toast.success(t('auth.verificationEmailSent'));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setResendingVerification(false);
+    }
+  }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'orders', label: t('account.tabOrders') },
@@ -90,7 +104,14 @@ export default function AccountPage() {
           {user.isVerified === false && (
             <p className="mt-2 text-xs text-clay">
               {t('auth.notVerified')}{' '}
-              <Link href="/verify-email" className="underline">{t('auth.verifyNow')}</Link>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="underline disabled:opacity-60"
+              >
+                {resendingVerification ? t('auth.sendingVerification') : t('auth.verifyNow')}
+              </button>
             </p>
           )}
         </div>

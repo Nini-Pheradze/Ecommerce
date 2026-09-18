@@ -9,6 +9,7 @@ const {
   updateMe,
   updatePassword,
   verifyEmail,
+  resendVerificationEmail,
   forgotPassword,
   resetPassword,
   generate2FA,
@@ -28,6 +29,7 @@ router.get('/me', protect, getMe);
 router.patch('/me', protect, updateMe);
 router.patch('/update-password', protect, updatePassword);
 router.post('/verify-email', verifyEmail);
+router.post('/resend-verification', protect, resendVerificationEmail);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.post('/login/verify-2fa', verifyLogin2FA);
